@@ -1,0 +1,4 @@
+cod_estacion,cod_estacion_eu,nombre,provincia,municipio,estacion,nombre_municipio,tipo_estacion,tipo_area,direccion,latitud,longitud,altitud_m,fecha_alta,utm_x_etrs89,utm_y_etrs89,punto_muestreo_no2
+18021001,ES1973A,CIUDAD DEPORTIVA,18,21,1,Armilla,fondo,suburbana,AVDA. PIERRE DE COUBERTAIN S/N,37.13556,-3.61925,684,2010-03-07,444999,4110090,18021001_8_8
+18087007,ES1560A,GRANADA - NORTE,18,87,7,Granada,trafico,urbana,AVDA. LUIS MIRANDA DÁVALOS,37.1961,-3.61266,689,2000-02-01,445628,4116802,18087007_8_8
+18087010,ES1924A,PALACIO CONGRESOS,18,87,10,Granada,fondo,urbana,PASEO DE VIOLÓN S/N,37.16568,-3.6001,666,2009-06-17,446721,4113421,18087010_8_8

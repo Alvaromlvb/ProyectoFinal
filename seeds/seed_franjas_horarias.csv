@@ -1,0 +1,12 @@
+tipo_dia,franja,hora_inicio,hora_fin,orden_franja
+laborable,madrugada,1,7,1
+laborable,punta_manana,8,10,2
+laborable,mediodia,11,15,3
+laborable,tarde,16,21,4
+laborable,noche,22,24,5
+fin_de_semana,noche,1,3,5
+fin_de_semana,madrugada,4,9,1
+fin_de_semana,manana,10,12,2
+fin_de_semana,mediodia,13,15,3
+fin_de_semana,tarde,16,19,4
+fin_de_semana,noche,20,24,5

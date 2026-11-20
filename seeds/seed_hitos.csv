@@ -1,0 +1,5 @@
+hito_id,nombre,tipo,fecha_inicio,fecha_fin,ambito,nota,fuente
+zona30_ciudad,Límite de 30 km/h en toda la ciudad,medida_trafico,2019-04-10,2021-05-11,Municipio de Granada,Fecha del anuncio; la señalización se implantó de forma gradual en las semanas siguientes,https://www.granada.org/inet/wprensa.nsf/xnotalc/70E611AF3514CE92C12583D8004022ED
+circunvalacion_90,Circunvalación y Ronda Sur a 90 km/h,medida_trafico,2020-01-20,,Circunvalación (A-44) y Ronda Sur,Antes 100 km/h,https://www.canalsur.es/noticias/andalucia/granada/menos-velocidad-menos-contaminacion-en-granada/1536064.html
+estado_alarma_covid,Estado de alarma por la COVID-19,contexto,2020-03-14,2020-06-21,España,Confinamiento domiciliario y desescalada por fases; fin a las 00:00 del 21 de junio,Real Decreto 463/2020
+rd_970_2020,30 km/h en vías urbanas de un carril por sentido,medida_trafico,2021-05-11,,España (Granada adapta su señalización),Entrada en vigor del RD 970/2020; Granada deroga su decreto de zonas 30 de 2014,https://www.granada.org/inet/wordenanz.nsf/712f4d0bcb4a7b72c125788d002413aa/5284d5505817672dc12586d4002b1694!OpenDocument
