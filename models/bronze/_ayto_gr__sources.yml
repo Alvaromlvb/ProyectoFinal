@@ -1,0 +1,39 @@
+version: 2
+
+sources:
+  - name: ayto_gr
+    description: >
+      Intensidades de tráfico del Ayuntamiento de Granada (Estadísticas Granada,
+      "Intensidades de tráfico por punto de medida, mes y año", 2015-2021).
+      Cargadas con COPY INTO desde el stage, una fila por línea de texto de cada
+      fichero CSV, sin parsear.
+    database: "{{ env_var('DBT_ENTORNO', 'DEV') }}_BRONZE"
+    schema: ayto_gr
+    loader: Snowflake COPY INTO
+
+    tables:
+      - name: raw_trafico_lineas
+        identifier: RAW_TRAFICO_LINEAS
+        description: >
+          Una fila por línea de cada fichero <anio>_<mes>/<pm>.csv. Cada fichero tiene
+          12 líneas: 1 = código del punto (PM), 2 = dirección, 3 = coordenadas X/Y (UTM),
+          4 = IMD del mes, 5 = cabecera de horas, 6-12 = perfil horario de lunes a domingo.
+          El año, el mes y el PM fiables salen del nombre del fichero, no de la cabecera.
+        columns:
+          - name: FICHERO
+            description: Ruta del fichero en el stage, p. ej. 2015_01/122.csv.gz.
+            data_tests:
+              - not_null
+          - name: NUM_LINEA
+            description: Número de línea dentro del fichero (empieza en 1).
+            data_tests:
+              - not_null
+          - name: LINEA
+            description: Texto de la línea tal cual viene en el fichero.
+            data_tests:
+              - not_null
+          - name: CARGADO_EN
+            description: Momento de la carga con COPY INTO.
+        data_tests:
+          - dbt_utils.unique_combination_of_columns:
+              combination_of_columns: ['FICHERO', 'NUM_LINEA']

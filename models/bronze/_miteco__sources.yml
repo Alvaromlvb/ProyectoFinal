@@ -1,0 +1,67 @@
+version: 2
+
+sources:
+  - name: miteco
+    description: >
+      Datos horarios oficiales de calidad del aire del Ministerio para la Transición
+      Ecológica (MITECO), contaminante NO2, 2015-2021, todas las estaciones de España.
+      Cargados con COPY INTO desde el stage; todas las columnas como texto.
+      Formato: https://www.miteco.gob.es/content/dam/miteco/es/calidad-y-evaluacion-ambiental/temas/atmosfera-y-calidad-del-aire/formatodatoscsvmiteco_web_tcm30-501420.pdf
+    database: "{{ env_var('DBT_ENTORNO', 'DEV') }}_BRONZE"
+    schema: miteco
+    loader: Snowflake COPY INTO
+
+    tables:
+      - name: raw_no2_horario
+        identifier: RAW_NO2_HORARIO
+        description: >
+          Una fila por estación, punto de muestreo y día. H01..H24 son los valores
+          horarios en µg/m3, en hora UTC y asignados al final del periodo
+          (H01 = 00:00-01:00 UTC). Un valor vacío es un dato no válido o no medido;
+          los días sin ningún dato no tienen fila.
+        columns:
+          - name: PROVINCIA
+            description: Código INE de la provincia (18 = Granada).
+            data_tests:
+              - not_null
+          - name: MUNICIPIO
+            description: Código INE del municipio (87 = Granada, 21 = Armilla).
+            data_tests:
+              - not_null
+          - name: ESTACION
+            description: Identificador de la estación dentro del municipio.
+            data_tests:
+              - not_null
+          - name: MAGNITUD
+            description: Código del contaminante (8 = NO2).
+            data_tests:
+              - not_null
+          - name: PUNTO_MUESTREO
+            description: Serie de datos (estación + magnitud + técnica), p. ej. 18087007_8_8.
+            data_tests:
+              - not_null
+          - name: ANNO
+            description: Año.
+            data_tests:
+              - not_null
+          - name: MES
+            description: Mes (1-12).
+            data_tests:
+              - not_null
+          - name: DIA
+            description: Día del mes.
+            data_tests:
+              - not_null
+          - name: H01
+            description: Valor de 00:00 a 01:00 UTC. Igual para H02..H24, hasta H24 (23:00-24:00 UTC).
+          - name: FICHERO
+            description: Fichero de origen en el stage, p. ej. NO2_HH_2019.csv.gz.
+            data_tests:
+              - not_null
+          - name: CARGADO_EN
+            description: Momento de la carga con COPY INTO.
+        data_tests:
+          - dbt_utils.unique_combination_of_columns:
+              combination_of_columns: ['PUNTO_MUESTREO', 'ANNO', 'MES', 'DIA']
+              config:
+                severity: warn

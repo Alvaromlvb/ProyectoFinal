@@ -1,0 +1,165 @@
+version: 2
+
+seeds:
+  - name: seed_festivos
+    description: >
+      Calendario laboral oficial de Granada capital, 2015-2021: festivos nacionales,
+      autonómicos de Andalucía y las dos fiestas locales de cada año (14 por año).
+      Incluye los festivos que caen en sábado y, cuando un festivo se traslada a lunes,
+      la fecha en que se disfruta. Se usa en dim_mes (festivos laborables del mes) y
+      para marcar los días festivos en el NO2 horario.
+    config:
+      quote_columns: false
+      column_types:
+        fecha: date
+        nombre: varchar
+        ambito: varchar
+        es_traslado: boolean
+        fecha_original: date
+        cae_en_fin_de_semana: boolean
+        fuente: varchar
+    columns:
+      - name: fecha
+        description: Día festivo efectivo (hora local de Madrid).
+        data_tests:
+          - unique
+          - not_null
+      - name: nombre
+        description: Festividad.
+        data_tests:
+          - not_null
+      - name: ambito
+        description: nacional, autonomico (Andalucía, incluidos los traslados a lunes) o local (Granada capital).
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['nacional', 'autonomico', 'local']
+      - name: es_traslado
+        description: True si el festivo se disfruta un lunes porque la fecha original cayó en domingo.
+      - name: fecha_original
+        description: >
+          Fecha original de la festividad si fue trasladada, si no se queda vacío.
+      - name: cae_en_fin_de_semana
+        description: True si el festivo cae en sábado o domingo y no afecta a un día laborable.
+      - name: fuente
+        description: >
+          Origen del dato. Las fiestas locales de 2018 y 2019 se infieren del acuerdo
+          de Pleno 2017-2019 y del cómputo horario municipal de ese año.
+
+  - name: seed_hitos
+    description: >
+      Medidas y acontecimientos que definen los periodos de análisis (antes y después).
+      dim_mes los usa para etiquetar cada mes.
+    config:
+      quote_columns: false
+      column_types:
+        hito_id: varchar
+        nombre: varchar
+        tipo: varchar
+        fecha_inicio: date
+        fecha_fin: date
+        ambito: varchar
+        nota: varchar
+        fuente: varchar
+    columns:
+      - name: hito_id
+        description: Identificador estable del hito, usado en los modelos.
+        data_tests:
+          - unique
+          - not_null
+      - name: tipo
+        description: medida_trafico (lo que se evalúa) o contexto (lo que hay que controlar).
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['medida_trafico', 'contexto']
+      - name: fecha_inicio
+        description: Entrada en vigor o anuncio (ver nota).
+        data_tests:
+          - not_null
+      - name: fecha_fin
+        description: Solo para hitos con duración. Vacío si la medida sigue vigente.
+
+  - name: seed_franjas_horarias
+    description: >
+      Agrupación de las horas del día en franjas, distinta para laborables y fines de semana.
+      Definida a partir del perfil horario medio de tráfico 2017-2019 de los propios datos.
+      La hora sigue la etiqueta de los ficheros del Ayuntamiento (1 a 24); se asume que
+      cada valor corresponde a la hora que termina a esa hora.
+    config:
+      quote_columns: false
+      column_types:
+        tipo_dia: varchar
+        franja: varchar
+        hora_inicio: integer
+        hora_fin: integer
+        orden_franja: integer
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: ['tipo_dia', 'hora_inicio']
+    columns:
+      - name: tipo_dia
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['laborable', 'fin_de_semana']
+      - name: franja
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['madrugada', 'punta_manana', 'manana', 'mediodia', 'tarde', 'noche']
+      - name: hora_inicio
+        description: Primera hora de la franja (incluida).
+        data_tests:
+          - not_null
+      - name: hora_fin
+        description: Última hora de la franja (incluida).
+        data_tests:
+          - not_null
+      - name: orden_franja
+        description: Orden de la franja para ordenar gráficos y tablas.
+
+  - name: seed_estaciones
+    description: >
+      Estaciones de calidad del aire usadas en el análisis, tomadas de la metainformación
+      del MITECO (2021; no cambian entre 2015 y 2021). Coordenadas en ETRS89, igual que
+      las que publica el Ayuntamiento de Granada.
+    config:
+      quote_columns: false
+      column_types:
+        cod_estacion: varchar
+        cod_estacion_eu: varchar
+        nombre: varchar
+        provincia: integer
+        municipio: integer
+        estacion: integer
+        nombre_municipio: varchar
+        tipo_estacion: varchar
+        tipo_area: varchar
+        direccion: varchar
+        latitud: float
+        longitud: float
+        altitud_m: integer
+        fecha_alta: date
+        utm_x_etrs89: integer
+        utm_y_etrs89: integer
+        punto_muestreo_no2: varchar
+    columns:
+      - name: cod_estacion
+        description: Código nacional (provincia INE + municipio INE + estación). Clave para cruzar con los datos horarios del MITECO.
+        data_tests:
+          - unique
+          - not_null
+      - name: tipo_estacion
+        description: trafico o fondo. Granada Norte es la única de tráfico.
+        data_tests:
+          - accepted_values:
+              values: ['trafico', 'fondo']
+      - name: tipo_area
+        data_tests:
+          - accepted_values:
+              values: ['urbana', 'suburbana']
+      - name: punto_muestreo_no2
+        description: Valor de PUNTO_MUESTREO del NO2 de esa estación en los ficheros horarios.
+        data_tests:
+          - unique
