@@ -33,7 +33,9 @@ seeds:
         data_tests:
           - not_null
           - accepted_values:
-              values: ['nacional', 'autonomico', 'local']
+              arguments:
+                values: ['nacional', 'autonomico', 'local']
+
       - name: es_traslado
         description: True si el festivo se disfruta un lunes porque la fecha original cayó en domingo.
       - name: fecha_original
@@ -72,7 +74,8 @@ seeds:
         data_tests:
           - not_null
           - accepted_values:
-              values: ['medida_trafico', 'contexto']
+              arguments:
+                values: ['medida_trafico', 'contexto']
       - name: fecha_inicio
         description: Entrada en vigor o anuncio (ver nota).
         data_tests:
@@ -96,18 +99,23 @@ seeds:
         orden_franja: integer
     data_tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns: ['tipo_dia', 'hora_inicio']
+          arguments:
+            combination_of_columns:
+              - tipo_dia
+              - hora_inicio
     columns:
       - name: tipo_dia
         data_tests:
           - not_null
           - accepted_values:
-              values: ['laborable', 'fin_de_semana']
+              arguments:
+                values: ['laborable', 'fin_de_semana']
       - name: franja
         data_tests:
           - not_null
           - accepted_values:
-              values: ['madrugada', 'punta_manana', 'manana', 'mediodia', 'tarde', 'noche']
+              arguments:
+                values: ['madrugada', 'punta_manana', 'manana', 'mediodia', 'tarde', 'noche']
       - name: hora_inicio
         description: Primera hora de la franja (incluida).
         data_tests:
@@ -154,11 +162,13 @@ seeds:
         description: trafico o fondo. Granada Norte es la única de tráfico.
         data_tests:
           - accepted_values:
-              values: ['trafico', 'fondo']
+              arguments:
+                values: ['trafico', 'fondo']
       - name: tipo_area
         data_tests:
           - accepted_values:
-              values: ['urbana', 'suburbana']
+              arguments:
+                values: ['urbana', 'suburbana']
       - name: punto_muestreo_no2
         description: Valor de PUNTO_MUESTREO del NO2 de esa estación en los ficheros horarios.
         data_tests:

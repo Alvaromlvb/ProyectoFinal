@@ -62,6 +62,11 @@ sources:
             description: Momento de la carga con COPY INTO.
         data_tests:
           - dbt_utils.unique_combination_of_columns:
-              combination_of_columns: ['PUNTO_MUESTREO', 'ANNO', 'MES', 'DIA']
+              arguments:
+                combination_of_columns:
+                  - PUNTO_MUESTREO
+                  - ANNO
+                  - MES
+                  - DIA
               config:
                 severity: warn
