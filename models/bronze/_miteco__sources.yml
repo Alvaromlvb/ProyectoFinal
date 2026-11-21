@@ -58,7 +58,7 @@ sources:
             description: Fichero de origen en el stage, p. ej. NO2_HH_2019.csv.gz.
             data_tests:
               - not_null
-          - name: CARGADO_EN
+          - name: LOADED_AT
             description: Momento de la carga con COPY INTO.
         data_tests:
           - dbt_utils.unique_combination_of_columns:

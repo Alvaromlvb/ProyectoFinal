@@ -1,0 +1,299 @@
+# ============================================================================
+# Modelos de staging
+# ============================================================================
+# Debido a que el dataset de tráfico no tiene formato tabular, de forma
+# excepcional staging no va a ser 1:1 con bronze. Además de castear y
+# testear se separan las cabeceras de las tablas.
+# ============================================================================
+version: 2
+
+models:
+  - name: __no2_horario
+    description: >
+      NO2 horario de las tres estaciones de Granada usadas en el análisis (Granada Norte, Palacio
+      de Congresos y Ciudad Deportiva), 2015-2021. Una fila por estación y hora: las columnas
+      H01..H24 de bronze pasan a filas. Las horas siguen en UTC, como en la fuente; el paso
+      a hora local se hace en silver. Las horas sin dato válido se conservan con no2_ugm3 nulo.
+      Los días que no tienen fila en la fuente no aparecen (los huecos completos se rellenan
+      en silver con un calendario).
+    columns:
+      - name: cod_estacion
+        description: >
+          Código nacional de la estación (provincia INE + municipio INE + estación), p. ej.
+          18087007. Clave para cruzar con seed_estaciones.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - '18087007'
+                  - '18087010'
+                  - '18021001'
+          - relationships:
+              arguments:
+                to: ref('seed_estaciones')
+                field: cod_estacion
+
+      - name: punto_muestreo
+        description: >
+          Serie de datos en el MITECO (estación + magnitud + técnica), p. ej. 18087007_8_8.
+        data_tests:
+          - not_null
+
+      - name: fecha_utc
+        description: Día de la fila en la fuente (día UTC).
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: "'2015-01-01'::date"
+                max_value: "'2021-12-31'::date"
+
+      - name: hora_utc
+        description: >
+          Hora de la columna de origen, de 1 (H01) a 24 (H24). Es la hora en que termina la
+          medición: hora_utc = 1 cubre de 00:00 a 01:00 UTC.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+                max_value: 24
+
+      - name: ts_utc_fin
+        description: >
+          Fin del periodo de medición en UTC (fecha_utc + hora_utc horas). El valor de H24 cae
+          a las 00:00 del día siguiente.
+        data_tests:
+          - not_null
+
+      - name: no2_ugm3
+        description: >
+          Concentración media horaria de NO2 en µg/m3. Nulo si el dato no es válido o no se
+          midió.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1000
+
+      - name: es_valido
+        description: True si la hora tiene dato (no2_ugm3 no nulo).
+        data_tests:
+          - not_null
+
+      - name: fichero
+        description: Fichero de origen en el stage de bronze, p. ej. NO2_HH_2019.csv.gz.
+        data_tests:
+          - not_null
+
+      - name: LOADED_AT
+        description: Momento de la carga en bronze.
+
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - cod_estacion
+              - ts_utc_fin
+
+  - name: __trafico_cabeceras
+    description: >
+      Cabecera de cada fichero de tráfico del Ayuntamiento de Granada: una fila por fichero,
+      es decir, por punto de medida y mes (2015-2021). Sale de las líneas 1 a 4 de cada fichero
+      (PM, dirección, coordenadas X/Y e IMD). El año, el mes y el punto fiables salen del nombre
+      del fichero (<anio>_<mes>/<pm>.csv): en algunos meses la cabecera describe otro punto,
+      y en 25 ficheros la dirección y las coordenadas vienen corruptas. Las comillas de los
+      ficheros de 2020 en formato entrecomillado se eliminan. Las coordenadas se dejan como
+      vienen (ED50 o ETRS89 según el periodo); se corrigen en silver.
+    columns:
+      - name: fichero
+        description: Ruta del fichero en el stage de bronze, p. ej. 2015_01/122.csv.gz.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: pm
+        description: Código del punto de medida, tomado del nombre del fichero.
+        data_tests:
+          - not_null
+
+      - name: anio
+        description: Año, tomado del nombre del fichero.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 2015
+                max_value: 2021
+
+      - name: mes
+        description: Mes (1-12), tomado del nombre del fichero.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+                max_value: 12
+
+      - name: fecha_mes
+        description: Primer día del mes al que corresponde el fichero.
+        data_tests:
+          - not_null
+
+      - name: pm_cabecera
+        description: >
+          Código del punto según la línea 1 del fichero. Debería coincidir con pm; se conserva
+          para detectar discrepancias.
+
+      - name: direccion_cabecera
+        description: >
+          Dirección según la línea 2, sin comillas ni el punto o guion bajo final. Nula si la
+          cabecera está corrupta. No sirve como clave: el mismo punto aparece escrito de varias
+          formas.
+
+      - name: utm_x_cabecera
+        description: >
+          Coordenada X (UTM huso 30) según la línea 3. Nula si la cabecera está corrupta.
+
+      - name: utm_y_cabecera
+        description: >
+          Coordenada Y (UTM huso 30) según la línea 3. Nula si la cabecera está corrupta.
+
+      - name: imd
+        description: Intensidad media diaria del mes (vehículos/día) según la línea 4.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+              config:
+                where: es_fichero_completo
+
+      - name: n_lineas
+        description: Número de líneas del fichero en bronze. Un fichero completo tiene 12.
+        data_tests:
+          - not_null
+
+      - name: es_fichero_completo
+        description: >
+          True si el fichero tiene las 12 líneas esperadas. False solo para 2016_10/45, que
+          contiene dos líneas de números sin estructura.
+        data_tests:
+          - not_null
+
+      - name: es_cabecera_corrupta
+        description: >
+          True si la línea de dirección o la de coordenadas contiene un volcado de código (empieza
+          por StringJoin[ o Floor[). El perfil horario de esos ficheros sí es válido.
+        data_tests:
+          - not_null
+
+      - name: LOADED_AT
+        description: Momento de la carga en bronze.
+
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - pm
+              - anio
+              - mes
+
+  - name: __trafico_perfiles
+    description: >
+      Perfil horario de tráfico de cada punto de medida: una fila por punto, mes, día de la
+      semana y hora (2015-2021). Sale de las líneas 6 a 12 de cada fichero (lunes a domingo),
+      con las 24 columnas horarias pasadas a filas. Cada valor es la intensidad media horaria
+      (vehículos/hora) de ese día de la semana en ese mes, no un día concreto. Solo incluye
+      ficheros completos.
+    columns:
+      - name: fichero
+        description: >
+          Fichero de origen en el stage de bronze. Enlaza con stg_ayto_gr__trafico_cabeceras.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_ayto_gr__trafico_cabeceras')
+                field: fichero
+
+      - name: pm
+        description: Código del punto de medida, tomado del nombre del fichero.
+        data_tests:
+          - not_null
+
+      - name: anio
+        description: Año, tomado del nombre del fichero.
+        data_tests:
+          - not_null
+
+      - name: mes
+        description: Mes (1-12), tomado del nombre del fichero.
+        data_tests:
+          - not_null
+
+      - name: fecha_mes
+        description: Primer día del mes.
+        data_tests:
+          - not_null
+
+      - name: dia_semana
+        description: Día de la semana tal como viene en el fichero, sin comillas.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - lun
+                  - mar
+                  - mie
+                  - jue
+                  - vie
+                  - sab
+                  - dom
+
+      - name: num_dia_semana
+        description: Día de la semana como número, de 1 (lunes) a 7 (domingo).
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+                max_value: 7
+
+      - name: hora
+        description: >
+          Hora de la columna de origen ("1:00" a "24:00"), de 1 a 24, en hora local. Se asume
+          que cada valor corresponde a la hora que termina a esa hora (hora = 9 cubre de 8:00
+          a 9:00), igual que en los datos del MITECO.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+                max_value: 24
+
+      - name: vehiculos_hora
+        description: >
+          Intensidad media horaria (vehículos/hora) de ese día de la semana y hora en el mes.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+      - name: imd_dia_fichero
+        description: >
+          Total diario de ese día de la semana tal como viene en la última columna del fichero
+          (se repite en las 24 horas). No siempre coincide con la suma de las 24 horas; en silver
+          se recalcula a partir de vehiculos_hora.
+
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - pm
+              - anio
+              - mes
+              - num_dia_semana
+              - hora

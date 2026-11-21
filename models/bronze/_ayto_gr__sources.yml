@@ -32,7 +32,7 @@ sources:
             description: Texto de la línea tal cual viene en el fichero.
             data_tests:
               - not_null
-          - name: CARGADO_EN
+          - name: LOADED_AT
             description: Momento de la carga con COPY INTO.
         data_tests:
           - dbt_utils.unique_combination_of_columns:
