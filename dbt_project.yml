@@ -55,10 +55,7 @@ models:
       +tags: ['silver']
       +materialized: table
       +database: "{{ env_var('DBT_SILVER_DB') }}"
-      miteco:
-        +schema: miteco
-      ayto_gr:
-        +schema: ayto_gr
+      +schema: core
 
     # --- Gold: consumo. La capa la marca la database; el tipo de tabla, el
     #     prefijo del modelo (dim_, fct_, agg_, int_).
