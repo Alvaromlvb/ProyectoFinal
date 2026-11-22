@@ -41,16 +41,13 @@ models:
     # de 1 día como máximo. Para tablas de consumo preferimos tablas normales.
     +transient: false
 
-    # --- Staging: casting y renaming, 1:1 con Bronze. Vistas: no ocupan
-    #     almacenamiento y siempre reflejan Bronze.
+    # --- Staging: de forma excepcional no es una copia 1:1 de bronze por el
+    # formato de los ficheros. Se separan cabeceras de tablas (además de limpieza y casteo)
     staging:
       +tags: ['staging']
       +materialized: view
       +database: "{{ env_var('DBT_SILVER_DB') }}"
-      miteco:
-        +schema: miteco
-      ayto_gr:
-        +schema: ayto_gr
+      +schema: staging
 
     # --- Silver: limpieza y deduplicación. Tablas: la deduplicación es cara y
     #     no queremos repetirla en cada consulta.
