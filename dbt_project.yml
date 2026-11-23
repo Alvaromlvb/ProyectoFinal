@@ -63,6 +63,7 @@ models:
       +tags: ['gold']
       +materialized: table
       +database: "{{ env_var('DBT_GOLD_DB') }}"
+      +schema: core
 
 # =============================================================================
 # Seeds

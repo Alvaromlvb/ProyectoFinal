@@ -7,7 +7,7 @@
       - fuera de jun-oct 2016, cuando las cabeceras están cambiadas de punto.
     Las cabeceras traen UTM 30N. Hasta sep-2019 (salvo abr-2018) vienen en ED50 y se
     pasan a ETRS89 restando el desplazamiento medido en los datos (unos 112 m en X y
-    206 m en Y); después se convierten a WGS84. Las UTM no salen de este modelo.
+    206 m en Y); después se convierten a latitud/longitud con la fórmula de ubicacion_latlon. Las UTM no salen de este modelo.
 -#}
 
 {%- set meses_cabecera_desplazada = ['2016-06-01', '2016-07-01', '2016-08-01', '2016-09-01', '2016-10-01'] -%}
@@ -61,22 +61,34 @@ cabecera_referencia as (
 
 ),
 
-ubicacion as (
+ubicacion_utm as (
 
     select
         pm,
         mes_cabecera_referencia,
-        direccion_cabecera                                          as direccion,
-        st_transform(
-            st_makegeompoint(
-                iff(es_origen_ed50, utm_x_cabecera - {{ ed50_dx }}, utm_x_cabecera),
-                iff(es_origen_ed50, utm_y_cabecera - {{ ed50_dy }}, utm_y_cabecera)
-            ),
-            25830, 4326
-        )                                                           as geom_wgs84
+        direccion_cabecera                                                     as direccion,
+        iff(es_origen_ed50, utm_x_cabecera - {{ ed50_dx }}, utm_x_cabecera)::float  as utm_x,
+        iff(es_origen_ed50, utm_y_cabecera - {{ ed50_dy }}, utm_y_cabecera)::float  as utm_y
     from cabecera_referencia
 
 ),
+
+{#-
+    UTM huso 30N (ETRS89) → latitud/longitud. Fórmula inversa de Transverse Mercator
+    (Snyder, USGS 1987) con el elipsoide GRS80. No se usa ST_TRANSFORM porque
+    compilarlo cuesta segundos por cada vez que aparece en la consulta.
+    Error frente a las coordenadas oficiales de las estaciones: menos de 1 m.
+-#}
+{%- set k0     = 0.9996 -%}
+{%- set a      = 6378137.0 -%}
+{%- set e2     = 0.006694380022900787 -%}     {#- excentricidad² -#}
+{%- set ep2    = 0.006739496775478957 -%}     {#- segunda excentricidad² -#}
+{%- set mu_den = 6367449.145908449 -%}        {#- a·(1 - e²/4 - 3e⁴/64 - 5e⁶/256) -#}
+{%- set c2     = 0.0025188265967581876 -%}
+{%- set c4     = 3.7009490719640127e-06 -%}
+{%- set c6     = 7.447813877211132e-09 -%}
+{%- set c8     = 1.7035993573185927e-11 -%}
+{%- set lon0   = -3.0 -%}                     {#- meridiano central del huso 30 -#}
 
 ubicacion_latlon as (
 
@@ -84,9 +96,34 @@ ubicacion_latlon as (
         pm,
         mes_cabecera_referencia,
         direccion,
-        round(st_y(geom_wgs84), 6)   as latitud,
-        round(st_x(geom_wgs84), 6)   as longitud
-    from ubicacion
+
+        -- latitud de pie de la perpendicular
+        (utm_y / {{ k0 }}) / {{ mu_den }}                                   as mu,
+        mu + {{ c2 }} * sin(2 * mu) + {{ c4 }} * sin(4 * mu)
+           + {{ c6 }} * sin(6 * mu) + {{ c8 }} * sin(8 * mu)                as phi1,
+
+        {{ ep2 }} * square(cos(phi1))                                       as c1,
+        square(tan(phi1))                                                   as t1,
+        {{ a }} / sqrt(1 - {{ e2 }} * square(sin(phi1)))                    as n1,
+        {{ a }} * (1 - {{ e2 }}) / power(1 - {{ e2 }} * square(sin(phi1)), 1.5)  as r1,
+        (utm_x - 500000) / (n1 * {{ k0 }})                                  as d,
+
+        round(degrees(
+            phi1 - (n1 * tan(phi1) / r1) * (
+                  power(d, 2) / 2
+                - (5 + 3 * t1 + 10 * c1 - 4 * square(c1) - 9 * {{ ep2 }}) * power(d, 4) / 24
+                + (61 + 90 * t1 + 298 * c1 + 45 * square(t1) - 252 * {{ ep2 }} - 3 * square(c1)) * power(d, 6) / 720
+            )
+        ), 6)                                                               as latitud,
+
+        round({{ lon0 }} + degrees(
+            (   d
+              - (1 + 2 * t1 + c1) * power(d, 3) / 6
+              + (5 - 2 * c1 + 28 * t1 - 3 * square(c1) + 8 * {{ ep2 }} + 24 * square(t1)) * power(d, 5) / 120
+            ) / cos(phi1)
+        ), 6)                                                               as longitud
+
+    from ubicacion_utm
 
 ),
 
