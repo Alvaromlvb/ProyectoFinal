@@ -22,8 +22,6 @@ final as (
         latitud,
         longitud,
         altitud_m,
-        utm_x_etrs89,
-        utm_y_etrs89,
         fecha_alta,
         punto_muestreo_no2
     from estaciones

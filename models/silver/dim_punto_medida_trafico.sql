@@ -1,12 +1,13 @@
 {#-
-    Puntos de medida de tráfico: una fila por PM con su ubicación canónica.
+    Puntos de medida de tráfico: una fila por PM con su ubicación canónica en latitud/longitud.
 
     La ubicación sale de la cabecera más reciente que sea fiable:
       - fichero completo y cabecera no corrupta,
       - el PM de la cabecera coincide con el del nombre del fichero,
       - fuera de jun-oct 2016, cuando las cabeceras están cambiadas de punto.
-    Hasta sep-2019 (salvo abr-2018) las coordenadas vienen en ED50 y se pasan a
-    ETRS89 restando el desplazamiento medido en los datos (unos 112 m en X y 206 m en Y).
+    Las cabeceras traen UTM 30N. Hasta sep-2019 (salvo abr-2018) vienen en ED50 y se
+    pasan a ETRS89 restando el desplazamiento medido en los datos (unos 112 m en X y
+    206 m en Y); después se convierten a WGS84. Las UTM no salen de este modelo.
 -#}
 
 {%- set meses_cabecera_desplazada = ['2016-06-01', '2016-07-01', '2016-08-01', '2016-09-01', '2016-10-01'] -%}
@@ -17,7 +18,7 @@
 
 with cabeceras as (
 
-    select * from {{ ref('__trafico_cabeceras') }}
+    select * from {{ ref('stg_ayto_gr__trafico_cabeceras') }}
 
 ),
 
@@ -65,18 +66,27 @@ ubicacion as (
     select
         pm,
         mes_cabecera_referencia,
-        direccion_cabecera                                              as direccion,
-        es_origen_ed50,
-        iff(es_origen_ed50, utm_x_cabecera - {{ ed50_dx }}, utm_x_cabecera)  as utm_x_etrs89,
-        iff(es_origen_ed50, utm_y_cabecera - {{ ed50_dy }}, utm_y_cabecera)  as utm_y_etrs89,
+        direccion_cabecera                                          as direccion,
         st_transform(
             st_makegeompoint(
                 iff(es_origen_ed50, utm_x_cabecera - {{ ed50_dx }}, utm_x_cabecera),
                 iff(es_origen_ed50, utm_y_cabecera - {{ ed50_dy }}, utm_y_cabecera)
             ),
             25830, 4326
-        )                                                               as geom_wgs84
+        )                                                           as geom_wgs84
     from cabecera_referencia
+
+),
+
+ubicacion_latlon as (
+
+    select
+        pm,
+        mes_cabecera_referencia,
+        direccion,
+        round(st_y(geom_wgs84), 6)   as latitud,
+        round(st_x(geom_wgs84), 6)   as longitud
+    from ubicacion
 
 ),
 
@@ -85,11 +95,11 @@ estacion_cercana as (
     select
         u.pm,
         e.id_estacion_no2,
-        sqrt(
-            square(u.utm_x_etrs89 - e.utm_x_etrs89)
-            + square(u.utm_y_etrs89 - e.utm_y_etrs89)
-        )                                                               as distancia_m
-    from ubicacion as u
+        st_distance(
+            st_makepoint(u.longitud, u.latitud),   -- st_makepoint(longitud, latitud)
+            st_makepoint(e.longitud, e.latitud)
+        )                                                                as distancia_m   -- metros
+    from ubicacion_latlon as u
     cross join estaciones as e
     qualify row_number() over (partition by u.pm order by distancia_m) = 1
 
@@ -101,19 +111,16 @@ final as (
         {{ dbt_utils.generate_surrogate_key(['a.pm']) }}    as id_punto_medida_trafico,
         a.pm,
         u.direccion,
-        u.utm_x_etrs89,
-        u.utm_y_etrs89,
-        round(st_y(u.geom_wgs84), 6)                         as latitud,
-        round(st_x(u.geom_wgs84), 6)                         as longitud,
+        u.latitud,
+        u.longitud,
         u.mes_cabecera_referencia,
-        u.es_origen_ed50,
         c.id_estacion_no2                                    as id_estacion_no2_cercana,
         round(c.distancia_m)                                 as distancia_estacion_m,
         a.primer_mes,
         a.ultimo_mes,
         a.n_meses_con_datos
     from actividad as a
-    left join ubicacion as u
+    left join ubicacion_latlon as u
         on a.pm = u.pm
     left join estacion_cercana as c
         on a.pm = c.pm

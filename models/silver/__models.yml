@@ -90,13 +90,17 @@ models:
         description: trafico o fondo.
       - name: tipo_area
         description: urbana o suburbana.
-      - name: utm_x_etrs89
-      - name: utm_y_etrs89
+      - name: latitud
+        description: Latitud WGS84 (grados decimales).
+        data_tests: [not_null]
+      - name: longitud
+        description: Longitud WGS84 (grados decimales).
+        data_tests: [not_null]
 
   - name: dim_punto_medida_trafico
     description: >
       Puntos de medida de tráfico del Ayuntamiento con su ubicación canónica (cabecera
-      fiable más reciente, en ETRS89) y la estación de NO2 más cercana.
+      fiable más reciente, en latitud/longitud WGS84) y la estación de NO2 más cercana.
     columns:
       - name: id_punto_medida_trafico
         data_tests: [unique, not_null]
@@ -104,23 +108,20 @@ models:
         description: Código del punto, tomado del nombre del fichero.
         data_tests: [unique, not_null]
       - name: direccion
-      - name: utm_x_etrs89
-        description: UTM 30N ETRS89 (EPSG:25830). Convertida desde ED50 si la cabecera era anterior a oct-2019.
-        data_tests: [not_null]
-      - name: utm_y_etrs89
-        data_tests: [not_null]
       - name: latitud
+        description: Latitud WGS84 (grados decimales).
         data_tests:
+          - not_null
           - dbt_utils.accepted_range:
               arguments: {min_value: 37.05, max_value: 37.30}
       - name: longitud
+        description: Longitud WGS84 (grados decimales).
         data_tests:
+          - not_null
           - dbt_utils.accepted_range:
               arguments: {min_value: -3.75, max_value: -3.50}
       - name: mes_cabecera_referencia
         description: Mes del fichero del que sale la ubicación.
-      - name: es_origen_ed50
-        description: True si las coordenadas originales venían en ED50 y se han convertido.
       - name: id_estacion_no2_cercana
         data_tests:
           - relationships:
