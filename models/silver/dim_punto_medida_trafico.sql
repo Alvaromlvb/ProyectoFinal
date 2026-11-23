@@ -18,7 +18,7 @@
 
 with cabeceras as (
 
-    select * from {{ ref('stg_ayto_gr__trafico_cabeceras') }}
+    select * from {{ ref('__trafico_cabeceras') }}
 
 ),
 
