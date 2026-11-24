@@ -2,196 +2,60 @@ version: 2
 
 models:
 
-  # ---------------------------------------------------------------------------
-  # Intermedios
-  # ---------------------------------------------------------------------------
-  - name: int_trafico_punto_mensual
+  - name: agg_patron_horario_trafico
     description: >
-      Tráfico mensual por punto, reconstruido desde el perfil multiplicando cada día de
-      la semana por las veces que aparece en el mes.
+      Patrón horario de tráfico por calle: vehículos de un día medio por punto de medida,
+      año, mes, día de la semana y hora (perfil mensual del Ayuntamiento, festivos incluidos),
+      con la ubicación del punto y la franja horaria.
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
-            combination_of_columns: ['id_punto_medida_trafico', 'fecha_mes']
+            combination_of_columns: ['id_punto_medida_trafico', 'anno', 'mes', 'dia_semana', 'hora']
     columns:
       - name: id_punto_medida_trafico
+        description: Punto de medida de tráfico.
         data_tests:
           - not_null
           - relationships:
               arguments:
                 to: ref('dim_punto_medida_trafico')
                 field: id_punto_medida_trafico
-      - name: fecha_mes
+      - name: latitud
+        description: Latitud WGS84 del punto.
         data_tests: [not_null]
-      - name: vehiculos_mes
-        description: Vehículos estimados en el mes.
-      - name: dias_mes
-        description: Días del mes (28 a 31).
+      - name: longitud
+        description: Longitud WGS84 del punto.
+        data_tests: [not_null]
+      - name: anno
         data_tests:
+          - not_null
           - dbt_utils.accepted_range:
-              arguments: {min_value: 28, max_value: 31}
-      - name: imd
-        description: Intensidad media diaria del mes (vehículos/día).
+              arguments: {min_value: 2015, max_value: 2021}
+      - name: mes
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 1, max_value: 12}
+      - name: dia_semana
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom']
+      - name: num_dia_semana
+        description: número asociado a cada día de la semana para ordenar (1=lunes, 7=domingo)
+      - name: hora
+        description: 1..24, hora local en que termina el intervalo (1 = 00:00-01:00).
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 1, max_value: 24}
+      - name: franja_horaria
+        description: Franja de la hora según el tipo de día (laborable o fin de semana).
+        data_tests: [not_null]
+      - name: num_vehiculos
+        description: Vehículos en esa hora (media de los días de ese tipo en el mes).
         data_tests:
           - not_null
           - dbt_utils.accepted_range:
               arguments: {min_value: 0}
-      - name: imd_laborable
-      - name: imd_fin_de_semana
-
-  - name: int_no2_estacion_mensual
-    description: >
-      NO2 mensual por estación con su cobertura. Una fila por estación y mes aunque no
-      haya datos (3 estaciones × 84 meses = 252 filas).
-    data_tests:
-      - dbt_utils.unique_combination_of_columns:
-          arguments:
-            combination_of_columns: ['id_estacion_no2', 'fecha_mes']
-    columns:
-      - name: id_estacion_no2
-        data_tests: [not_null]
-      - name: no2_medio
-        description: Media de las horas válidas del mes (µg/m³). Nula si no hay ninguna.
-      - name: horas_validas
-      - name: horas_posibles
-        description: Días del mes × 24.
-      - name: cobertura
-        data_tests:
-          - dbt_utils.accepted_range:
-              arguments: {min_value: 0, max_value: 1}
-      - name: es_mes_valido
-        description: Cobertura igual o superior a var('cobertura_minima_mes'), 0,75 por defecto.
-
-  # ---------------------------------------------------------------------------
-  # Casos de uso
-  # ---------------------------------------------------------------------------
-  - name: agg_hitos_trafico_vs_no2
-    description: >
-      Casos 2 y 3. Variación interanual del tráfico de la ciudad (puntos pareados) y del
-      NO2 de cada estación en los meses alrededor de cada hito, con la respuesta del NO2
-      al cambio de tráfico.
-    data_tests:
-      - dbt_utils.unique_combination_of_columns:
-          arguments:
-            combination_of_columns: ['hito_id', 'id_estacion_no2', 'fecha_mes']
-    columns:
-      - name: hito_id
-        data_tests:
-          - not_null
-          - relationships:
-              arguments:
-                to: ref('seed_hitos')
-                field: hito_id
-      - name: fase
-        description: antes, mes_del_hito, durante (si el hito tiene fecha de fin) o despues.
-        data_tests:
-          - accepted_values:
-              arguments:
-                values: ['antes', 'mes_del_hito', 'durante', 'despues']
-      - name: meses_desde_hito
-        description: Meses respecto al mes del hito (negativo = antes).
-      - name: n_puntos_trafico
-        description: Puntos con datos en el mes y en el mismo mes del año anterior.
-      - name: var_trafico_pct
-        description: Variación del tráfico frente al mismo mes del año anterior (0,10 = +10 %).
-      - name: var_no2_pct
-        description: Variación del NO2 frente al mismo mes del año anterior. Nula si no es comparable.
-      - name: es_no2_comparable
-        description: Los dos meses superan la cobertura mínima.
-      - name: respuesta_no2_por_trafico
-        description: >
-          var_no2_pct / var_trafico_pct. 0,5 = el NO2 cambia la mitad (en %) que el tráfico.
-          Solo si el tráfico cambia al menos un 5 % y el NO2 es comparable.
-
-  - name: agg_trafico_no2_horario
-    description: >
-      Caso 4. NO2 de cada estación y tráfico de los puntos de su entorno
-      (var('radio_entorno_estacion_m'), 1000 m por defecto), al grano de las tablas de hechos.
-    data_tests:
-      - dbt_utils.unique_combination_of_columns:
-          arguments:
-            combination_of_columns: ['id_estacion_no2', 'fecha_mes', 'num_dia_semana', 'hora']
-    columns:
-      - name: id_estacion_no2
-        data_tests: [not_null]
-      - name: no2
-        data_tests: [not_null]
-      - name: es_no2_fiable
-        description: n_horas_validas / n_dias igual o superior a la cobertura mínima.
-      - name: n_puntos_trafico
-        description: Puntos del entorno con datos ese mes (0 en Ciudad Deportiva).
-      - name: vehiculos_medio_punto
-        description: Vehículos/hora medios por punto del entorno.
-
-  - name: agg_correlacion_trafico_no2
-    description: >
-      Caso 4 (resumen). Correlación y regresión lineal entre el tráfico del entorno y el
-      NO2, por estación, año y tipo de día. Incluye el efecto del ciclo diario de la atmósfera.
-    data_tests:
-      - dbt_utils.unique_combination_of_columns:
-          arguments:
-            combination_of_columns: ['id_estacion_no2', 'anno', 'tipo_dia']
-    columns:
-      - name: correlacion
-        data_tests:
-          - dbt_utils.accepted_range:
-              arguments: {min_value: -1, max_value: 1}
-      - name: pendiente_no2_por_100_vehiculos
-        description: µg/m³ de NO2 por cada 100 vehículos/hora más por punto.
-      - name: no2_sin_trafico_estimado
-        description: Ordenada en el origen; aproximación al NO2 de fondo.
-      - name: r2
-
-  - name: agg_perfil_franja
-    description: Caso 5. Reparto del tráfico diario de la ciudad por franjas horarias.
-    data_tests:
-      - dbt_utils.unique_combination_of_columns:
-          arguments:
-            combination_of_columns: ['fecha_mes', 'tipo_dia', 'franja_horaria']
-    columns:
-      - name: franja_horaria
-        data_tests: [not_null]
-      - name: vehiculos_dia_medio_punto
-        description: Vehículos medios por punto y día en la franja.
-      - name: pct_trafico_dia
-        description: Parte del tráfico diario en la franja (suman 1 por mes y tipo de día).
-        data_tests:
-          - dbt_utils.accepted_range:
-              arguments: {min_value: 0, max_value: 1}
-
-  - name: agg_ranking_puntos
-    description: Caso 6. Intensidad anual por punto, ranking y variación interanual pareada.
-    data_tests:
-      - dbt_utils.unique_combination_of_columns:
-          arguments:
-            combination_of_columns: ['id_punto_medida_trafico', 'anno']
-    columns:
-      - name: id_punto_medida_trafico
-        data_tests: [not_null]
-      - name: imd_anual
-        description: Intensidad media diaria del año, con los meses que tienen datos.
-        data_tests: [not_null]
-      - name: ranking_imd
-        description: Posición en el año (1 = más tráfico). Nulo si el punto tiene menos de var('min_meses_ranking') meses.
-      - name: var_interanual_pct
-        description: Variación frente al año anterior usando solo los meses con datos en ambos.
-
-  - name: agg_no2_anual
-    description: >
-      Caso 7. Media anual de NO2 por estación frente al límite anual vigente (40 µg/m³) y al
-      de 2030 (20 µg/m³). El límite horario no es evaluable con estos datos.
-    data_tests:
-      - dbt_utils.unique_combination_of_columns:
-          arguments:
-            combination_of_columns: ['id_estacion_no2', 'anno']
-    columns:
-      - name: no2_medio_anual
-        description: Media de todas las horas válidas del año (µg/m³).
-      - name: cobertura
-        data_tests:
-          - dbt_utils.accepted_range:
-              arguments: {min_value: 0, max_value: 1}
-      - name: es_anio_valido
-        description: Cobertura de al menos el 90 % (var('cobertura_minima_anio')), la que exige la directiva.
-      - name: supera_limite_vigente
-      - name: supera_limite_2030
