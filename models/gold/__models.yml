@@ -1,0 +1,61 @@
+version: 2
+
+models:
+
+  - name: agg_patron_horario_trafico
+    description: >
+      Patrón horario de tráfico por calle: vehículos de un día medio por punto de medida,
+      año, mes, día de la semana y hora (perfil mensual del Ayuntamiento, festivos incluidos),
+      con la ubicación del punto y la franja horaria.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ['id_punto_medida_trafico', 'anno', 'mes', 'dia_semana', 'hora']
+    columns:
+      - name: id_punto_medida_trafico
+        description: Punto de medida de tráfico.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_punto_medida_trafico')
+                field: id_punto_medida_trafico
+      - name: latitud
+        description: Latitud WGS84 del punto.
+        data_tests: [not_null]
+      - name: longitud
+        description: Longitud WGS84 del punto.
+        data_tests: [not_null]
+      - name: anno
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 2015, max_value: 2021}
+      - name: mes
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 1, max_value: 12}
+      - name: dia_semana
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom']
+      - name: num_dia_semana
+        description: número asociado a cada día de la semana para ordenar (1=lunes, 7=domingo)
+      - name: hora
+        description: 1..24, hora local en que termina el intervalo (1 = 00:00-01:00).
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 1, max_value: 24}
+      - name: franja_horaria
+        description: Franja de la hora según el tipo de día (laborable o fin de semana).
+        data_tests: [not_null]
+      - name: num_vehiculos
+        description: Vehículos en esa hora (media de los días de ese tipo en el mes).
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 0}

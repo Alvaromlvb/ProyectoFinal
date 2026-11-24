@@ -1,0 +1,216 @@
+version: 2
+
+models:
+
+  # ---------------------------------------------------------------------------
+  # Dimensiones
+  # ---------------------------------------------------------------------------
+  - name: dim_tiempo
+    description: >
+      Año × mes × día de la semana (588 filas, 2015-2021). Es el grano temporal
+      común del tráfico y del NO2.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ['anno', 'mes', 'num_dia_semana']
+    columns:
+      - name: id_tiempo
+        description: Clave subrogada de (anno, mes, num_dia_semana).
+        data_tests: [unique, not_null]
+      - name: anno
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 2015, max_value: 2021}
+      - name: mes
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 1, max_value: 12}
+      - name: dia_semana
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom']
+      - name: num_dia_semana
+        description: 1 = lunes … 7 = domingo (ISO).
+      - name: tipo_dia
+        description: laborable (lunes a viernes) o fin_de_semana.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['laborable', 'fin_de_semana']
+      - name: fecha_mes
+        description: Primer día del mes.
+      - name: n_dias
+        description: Cuántos días de ese tipo tiene el mes (4 o 5). Denominador de la cobertura.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 4, max_value: 5}
+      - name: n_festivos
+        description: Cuántos de esos días fueron festivo en Granada (el perfil de tráfico los incluye).
+
+  - name: dim_hora
+    description: >
+      Tipo de día × hora (48 filas). La misma hora tiene distinto id en laborable y
+      en fin de semana porque las franjas cambian.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ['tipo_dia', 'hora']
+    columns:
+      - name: id_hora
+        description: Clave subrogada de (tipo_dia, hora).
+        data_tests: [unique, not_null]
+      - name: tipo_dia
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['laborable', 'fin_de_semana']
+      - name: hora
+        description: 1..24, hora local en que termina el intervalo (1 = 00:00-01:00).
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 1, max_value: 24}
+      - name: franja_horaria
+        description: Franja de seed_franjas_horarias. Nula solo si el seed deja una hora sin cubrir.
+        data_tests: [not_null]
+      - name: orden_franja
+
+  - name: dim_estaciones_no2
+    description: Estaciones de calidad del aire de Granada que miden NO2.
+    columns:
+      - name: id_estacion_no2
+        data_tests: [unique, not_null]
+      - name: cod_estacion
+        data_tests: [unique, not_null]
+      - name: nombre
+      - name: tipo_estacion
+        description: trafico o fondo.
+      - name: tipo_area
+        description: urbana o suburbana.
+      - name: latitud
+        description: Latitud WGS84 (grados decimales).
+        data_tests: [not_null]
+      - name: longitud
+        description: Longitud WGS84 (grados decimales).
+        data_tests: [not_null]
+
+  - name: dim_punto_medida_trafico
+    description: >
+      Puntos de medida de tráfico del Ayuntamiento con su ubicación canónica (cabecera
+      fiable más reciente, en latitud/longitud WGS84) y la estación de NO2 más cercana.
+    columns:
+      - name: id_punto_medida_trafico
+        data_tests: [unique, not_null]
+      - name: pm
+        description: Código del punto, tomado del nombre del fichero.
+        data_tests: [unique, not_null]
+      - name: direccion
+      - name: latitud
+        description: Latitud WGS84 (grados decimales).
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 37.05, max_value: 37.30}
+      - name: longitud
+        description: Longitud WGS84 (grados decimales).
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments: {min_value: -3.75, max_value: -3.50}
+      - name: mes_cabecera_referencia
+        description: Mes del fichero del que sale la ubicación.
+      - name: id_estacion_no2_cercana
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_estaciones_no2')
+                field: id_estacion_no2
+      - name: distancia_estacion_m
+        description: Distancia en línea recta a la estación más cercana, en metros.
+      - name: primer_mes
+      - name: ultimo_mes
+      - name: n_meses_con_datos
+        description: Meses con fichero completo. Sirve para el filtro de continuidad del 75 %.
+
+  # ---------------------------------------------------------------------------
+  # Hechos
+  # ---------------------------------------------------------------------------
+  - name: fct_medida_trafico
+    description: >
+      Vehículos por punto, año, mes, día de la semana y hora (perfil mensual del
+      Ayuntamiento, festivos incluidos).
+    columns:
+      - name: id_medida_trafico
+        data_tests: [unique, not_null]
+      - name: id_punto_medida_trafico
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_punto_medida_trafico')
+                field: id_punto_medida_trafico
+      - name: id_tiempo
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_tiempo')
+                field: id_tiempo
+      - name: id_hora
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_hora')
+                field: id_hora
+      - name: num_vehiculos
+        description: Vehículos en esa hora (media de los días de ese tipo en el mes).
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 0}
+
+  - name: fct_medida_no2
+    description: >
+      NO2 medio por estación, año, mes, día de la semana y hora local, al mismo grano
+      que el tráfico. Solo combinaciones con al menos una hora válida.
+    columns:
+      - name: id_medida_no2
+        data_tests: [unique, not_null]
+      - name: id_estacion_no2
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_estaciones_no2')
+                field: id_estacion_no2
+      - name: id_tiempo
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_tiempo')
+                field: id_tiempo
+      - name: id_hora
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_hora')
+                field: id_hora
+      - name: no2
+        description: Media de NO2 (µg/m³) de las horas válidas.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 0, max_value: 1000}
+      - name: n_horas_validas
+        description: >
+          Horas válidas que entran en la media. Cobertura = n_horas_validas / dim_tiempo.n_dias.
+          Puede valer n_dias + 1 en la hora 3 del último domingo de octubre (cambio de hora).
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 1, max_value: 6}
