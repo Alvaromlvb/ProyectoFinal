@@ -1,6 +1,6 @@
 {#-
     Patrón horario de NO2 por estación: media de un día medio por estación, año, mes,
-    día de la semana y hora local, con la ubicación de la estación y la franja horaria.
+    día de la semana y hora local, con la ubicación de la estación.
     Mismo grano que agg_patron_horario_trafico.
 
     Solo hay fila si la combinación tiene al menos una hora válida. es_dato_fiable marca
@@ -27,12 +27,6 @@ tiempo as (
 
 ),
 
-horas as (
-
-    select * from {{ ref('dim_hora') }}
-
-),
-
 final as (
 
     select
@@ -44,9 +38,8 @@ final as (
         t.anno,
         t.mes,
         t.dia_semana,
-        t.num_dia_semana,
-        h.hora,
-        h.franja_horaria,
+        {{ num_dia_semana('t.dia_semana') }}                        as num_dia_semana,
+        t.hora,
         f.no2,
         f.n_horas_validas,
         least(f.n_horas_validas / t.n_dias, 1) >= {{ cobertura_minima }}
@@ -56,8 +49,6 @@ final as (
         on f.id_estacion_no2 = e.id_estacion_no2
     inner join tiempo as t
         on f.id_tiempo = t.id_tiempo
-    inner join horas as h
-        on f.id_hora = h.id_hora
 
 )
 

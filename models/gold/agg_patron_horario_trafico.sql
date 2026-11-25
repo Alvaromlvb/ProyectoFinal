@@ -1,6 +1,6 @@
 {#-
     Patrón horario de tráfico por calle: vehículos de un día medio por punto, año, mes,
-    día de la semana y hora, con la ubicación del punto y la franja horaria.
+    día de la semana y hora, con la ubicación del punto.
     Mismo grano que fct_medida_trafico, con las dimensiones ya resueltas.
 -#}
 
@@ -22,12 +22,6 @@ tiempo as (
 
 ),
 
-horas as (
-
-    select * from {{ ref('dim_hora') }}
-
-),
-
 final as (
 
     select
@@ -37,17 +31,14 @@ final as (
         t.anno,
         t.mes,
         t.dia_semana,
-        t.num_dia_semana,
-        h.hora,
-        h.franja_horaria,
+        {{ num_dia_semana('t.dia_semana') }}   as num_dia_semana,
+        t.hora,
         f.num_vehiculos
     from trafico as f
     inner join puntos as p
         on f.id_punto_medida_trafico = p.id_punto_medida_trafico
     inner join tiempo as t
         on f.id_tiempo = t.id_tiempo
-    inner join horas as h
-        on f.id_hora = h.id_hora
 
 )
 

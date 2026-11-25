@@ -6,7 +6,7 @@ models:
     description: >
       Patrón horario de tráfico por calle: vehículos de un día medio por punto de medida,
       año, mes, día de la semana y hora (perfil mensual del Ayuntamiento, festivos incluidos),
-      con la ubicación del punto y la franja horaria.
+      con la ubicación del punto.
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -42,15 +42,14 @@ models:
           - accepted_values:
               arguments:
                 values: ['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom']
+      - name: num_dia_semana
+        description: 1 = lunes … 7 = domingo. Para ordenar dia_semana en Power BI.
       - name: hora
         description: 1..24, hora local en que termina el intervalo (1 = 00:00-01:00).
         data_tests:
           - not_null
           - dbt_utils.accepted_range:
               arguments: {min_value: 1, max_value: 24}
-      - name: franja_horaria
-        description: Franja de la hora según el tipo de día (laborable o fin de semana).
-        data_tests: [not_null]
       - name: num_vehiculos
         description: Vehículos en esa hora (media de los días de ese tipo en el mes).
         data_tests:
@@ -61,8 +60,7 @@ models:
   - name: agg_patron_horario_no2
     description: >
       Patrón horario de NO2 por estación: media de las horas válidas por estación, año,
-      mes, día de la semana y hora local, con la ubicación de la estación y la franja
-      horaria. Mismo grano que agg_patron_horario_trafico.
+      mes, día de la semana y hora local, con la ubicación de la estación. Mismo grano que agg_patron_horario_trafico.
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -108,8 +106,6 @@ models:
           - not_null
           - dbt_utils.accepted_range:
               arguments: {min_value: 1, max_value: 24}
-      - name: franja_horaria
-        data_tests: [not_null]
       - name: no2
         description: NO2 medio (µg/m³) de las horas válidas de ese día de la semana y hora en el mes.
         data_tests:
