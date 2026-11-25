@@ -1,6 +1,8 @@
 {#-
     NO2 horario de las tres estaciones de Granada, una fila por estación, día y hora UTC.
     Las columnas H01..H24 pasan a filas; las horas sin dato se conservan con valor nulo.
+    El MITECO vuelve a publicar el fichero de cada año al validar datos: si un fichero se
+    ha cargado más de una vez en bronze, solo se usa la última carga.
 -#}
 {%- set estaciones = ['18087007', '18087010', '18021001'] -%}
 {%- set columnas_hora -%}
@@ -10,6 +12,7 @@
 with source as (
 
     select * from {{ source('miteco', 'raw_no2_horario') }}
+    qualify loaded_at = max(loaded_at) over (partition by fichero)
 
 ),
 

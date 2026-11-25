@@ -76,7 +76,11 @@ models:
           - not_null
 
       - name: loaded_at
-        description: Momento de la carga en bronze.
+        description: >
+          Momento de la carga en bronze. Si un fichero se cargó varias veces, solo se conserva
+          la última carga. Lo usa fct_medida_no2 para la carga incremental.
+        data_tests:
+          - not_null
 
     data_tests:
       - dbt_utils.unique_combination_of_columns:
@@ -189,6 +193,13 @@ models:
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 0
+
+      - name: loaded_at
+        description: >
+          Momento de la carga del fichero en bronze. Si un fichero se cargó varias veces, solo
+          se conserva la última carga. Lo usa fct_medida_trafico para la carga incremental.
+        data_tests:
+          - not_null
 
     data_tests:
       - dbt_utils.unique_combination_of_columns:

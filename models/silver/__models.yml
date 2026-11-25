@@ -115,7 +115,8 @@ models:
   - name: fct_medida_trafico
     description: >
       Vehículos por punto, año, mes, día de la semana y hora (perfil mensual del
-      Ayuntamiento, festivos incluidos).
+      Ayuntamiento, festivos incluidos). Incremental: solo procesa los ficheros cargados
+      en bronze después del último loaded_at de la tabla.
     columns:
       - name: id_medida_trafico
         data_tests: [unique, not_null]
@@ -139,11 +140,16 @@ models:
           - not_null
           - dbt_utils.accepted_range:
               arguments: {min_value: 0}
+      - name: loaded_at
+        description: Carga en bronze del fichero de origen. Marca de control de la carga incremental.
+        data_tests: [not_null]
 
   - name: fct_medida_no2
     description: >
       NO2 medio por estación, año, mes, día de la semana y hora local, al mismo grano
-      que el tráfico. Solo combinaciones con al menos una hora válida.
+      que el tráfico. Solo combinaciones con al menos una hora válida. Incremental: recalcula
+      completos los meses con datos cargados después del último loaded_at de la tabla y borra
+      (post_hook) las combinaciones que se han quedado sin ninguna hora válida.
     columns:
       - name: id_medida_no2
         data_tests: [unique, not_null]
@@ -174,3 +180,6 @@ models:
         data_tests:
           - dbt_utils.accepted_range:
               arguments: {min_value: 1, max_value: 6}
+      - name: loaded_at
+        description: Carga en bronze más reciente de las horas de la media. Marca de control de la carga incremental.
+        data_tests: [not_null]
