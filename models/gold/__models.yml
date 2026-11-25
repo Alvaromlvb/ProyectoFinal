@@ -42,8 +42,6 @@ models:
           - accepted_values:
               arguments:
                 values: ['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom']
-      - name: num_dia_semana
-        description: número asociado a cada día de la semana para ordenar (1=lunes, 7=domingo)
       - name: hora
         description: 1..24, hora local en que termina el intervalo (1 = 00:00-01:00).
         data_tests:
@@ -59,3 +57,70 @@ models:
           - not_null
           - dbt_utils.accepted_range:
               arguments: {min_value: 0}
+
+  - name: agg_patron_horario_no2
+    description: >
+      Patrón horario de NO2 por estación: media de las horas válidas por estación, año,
+      mes, día de la semana y hora local, con la ubicación de la estación y la franja
+      horaria. Mismo grano que agg_patron_horario_trafico.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ['id_estacion_no2', 'anno', 'mes', 'dia_semana', 'hora']
+    columns:
+      - name: id_estacion_no2
+        description: Estación de medida de NO2.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_estaciones_no2')
+                field: id_estacion_no2
+      - name: estacion
+        description: Nombre de la estación.
+      - name: tipo_estacion
+        description: trafico o fondo.
+      - name: latitud
+        data_tests: [not_null]
+      - name: longitud
+        data_tests: [not_null]
+      - name: anno
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 2015, max_value: 2021}
+      - name: mes
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 1, max_value: 12}
+      - name: dia_semana
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom']
+      - name: num_dia_semana
+        description: 1 = lunes … 7 = domingo. Para ordenar dia_semana en Power BI.
+      - name: hora
+        description: 1..24, hora local en que termina el intervalo (1 = 00:00-01:00).
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 1, max_value: 24}
+      - name: franja_horaria
+        data_tests: [not_null]
+      - name: no2
+        description: NO2 medio (µg/m³) de las horas válidas de ese día de la semana y hora en el mes.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 0, max_value: 1000}
+      - name: n_horas_validas
+        description: Días con dato válido que entran en la media (puede valer n_dias + 1 en el cambio de hora de octubre).
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 1, max_value: 6}
+      - name: es_dato_fiable
+        description: Al menos el 75 % de los días de ese tipo del mes tienen dato válido.
+        data_tests: [not_null]
