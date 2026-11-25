@@ -42,7 +42,8 @@ models:
     +transient: false
 
     # --- Staging: de forma excepcional no es una copia 1:1 de bronze por el
-    # formato de los ficheros. Se separan cabeceras de tablas (además de limpieza y casteo)
+    # formato de los ficheros: se extraen la cabecera y el perfil horario de las
+    # líneas de texto de tráfico (además de limpieza y casteo)
     staging:
       +tags: ['staging']
       +materialized: view
@@ -92,13 +93,6 @@ seeds:
         ambito: varchar
         nota: varchar
         fuente: varchar
-    seed_franjas_horarias:
-      +column_types:
-        tipo_dia: varchar
-        franja: varchar
-        hora_inicio: integer
-        hora_fin: integer
-        orden_franja: integer
     seed_estaciones:
       +column_types:
         cod_estacion: varchar
