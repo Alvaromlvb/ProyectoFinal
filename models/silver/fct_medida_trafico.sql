@@ -4,24 +4,28 @@
     (festivos incluidos). Solo ficheros completos.
 -#}
 
-with perfiles as (
+with trafico as (
 
     select
-        *,
-        iff(num_dia_semana <= 5, 'laborable', 'fin_de_semana') as tipo_dia
-    from {{ ref('__trafico_perfiles') }}
+        pm,
+        anno,
+        mes,
+        {{ num_dia_semana('dia_semana') }}   as num_dia_semana,
+        hora,
+        vehiculos_hora
+    from {{ ref('__trafico') }}
+    where es_fichero_completo
 
 ),
 
 final as (
 
     select
-        {{ dbt_utils.generate_surrogate_key(['pm', 'anio', 'mes', 'num_dia_semana', 'hora']) }}  as id_medida_trafico,
+        {{ dbt_utils.generate_surrogate_key(['pm', 'anno', 'mes', 'num_dia_semana', 'hora']) }}  as id_medida_trafico,
         {{ dbt_utils.generate_surrogate_key(['pm']) }}                                         as id_punto_medida_trafico,
-        {{ dbt_utils.generate_surrogate_key(['anio', 'mes', 'num_dia_semana']) }}              as id_tiempo,
-        {{ dbt_utils.generate_surrogate_key(['tipo_dia', 'hora']) }}                           as id_hora,
+        {{ dbt_utils.generate_surrogate_key(['anno', 'mes', 'num_dia_semana', 'hora']) }}      as id_tiempo,
         vehiculos_hora                                                                         as num_vehiculos
-    from perfiles
+    from trafico
 
 )
 

@@ -1,8 +1,12 @@
 {#-
-    Dimensión de tiempo al grano del perfil de tráfico: año × mes × día de la semana.
-    7 años × 12 meses × 7 días = 588 filas.
-    n_dias (cuántos lunes, martes... tiene ese mes) es el denominador de la cobertura
-    del NO2; n_festivos indica cuántos de esos días fueron festivo en Granada.
+    Dimensión de tiempo al grano de las dos tablas de hechos:
+    año × mes × día de la semana × hora (7 × 12 × 7 × 24 = 14.112 filas).
+
+    hora = 1..24, hora local en que termina el intervalo (1 = 00:00-01:00).
+    n_dias: cuántos días de ese tipo (lunes, martes...) tiene el mes. Es el denominador
+    de la cobertura del NO2 (n_horas_validas / n_dias).
+    n_festivos: cuántos de esos días fueron festivo en Granada (el perfil de tráfico
+    del Ayuntamiento los incluye en la media).
 -#}
 
 with dias as (
@@ -24,18 +28,17 @@ festivos as (
 calendario as (
 
     select
-        d.date_day::date                       as fecha,
-        year(d.date_day)                       as anno,
-        month(d.date_day)                      as mes,
-        dayofweekiso(d.date_day)               as num_dia_semana,
-        f.fecha is not null                    as es_festivo
+        year(d.date_day)               as anno,
+        month(d.date_day)              as mes,
+        dayofweekiso(d.date_day)       as num_dia_semana,
+        f.fecha is not null            as es_festivo
     from dias as d
     left join festivos as f
         on d.date_day::date = f.fecha
 
 ),
 
-agregado as (
+dias_mes as (
 
     select
         anno,
@@ -48,21 +51,26 @@ agregado as (
 
 ),
 
+horas as (
+
+    select row_number() over (order by seq4()) as hora
+    from table(generator(rowcount => 24))
+
+),
+
 final as (
 
     select
-        {{ dbt_utils.generate_surrogate_key(['anno', 'mes', 'num_dia_semana']) }}  as id_tiempo,
-        anno,
-        mes,
-        decode(num_dia_semana,
-            1, 'lun', 2, 'mar', 3, 'mie', 4, 'jue',
-            5, 'vie', 6, 'sab', 7, 'dom')                                        as dia_semana,
-        num_dia_semana,
-        iff(num_dia_semana <= 5, 'laborable', 'fin_de_semana')                   as tipo_dia,
-        date_from_parts(anno, mes, 1)                                            as fecha_mes,
-        n_dias,
-        n_festivos
-    from agregado
+        {{ dbt_utils.generate_surrogate_key(['d.anno', 'd.mes', 'd.num_dia_semana', 'h.hora']) }}  as id_tiempo,
+        d.anno,
+        d.mes,
+        {{ nombre_dia_semana('d.num_dia_semana') }}                                         as dia_semana,
+        h.hora,
+        iff(d.num_dia_semana <= 5, 'laborable', 'fin_de_semana')                            as tipo_dia,
+        d.n_dias,
+        d.n_festivos
+    from dias_mes as d
+    cross join horas as h
 
 )
 

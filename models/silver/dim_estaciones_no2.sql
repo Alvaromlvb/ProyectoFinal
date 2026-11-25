@@ -13,7 +13,6 @@ final as (
     select
         {{ dbt_utils.generate_surrogate_key(['cod_estacion']) }}  as id_estacion_no2,
         cod_estacion,
-        cod_estacion_eu,
         nombre,
         nombre_municipio,
         tipo_estacion,
@@ -21,7 +20,7 @@ final as (
         direccion,
         latitud,
         longitud,
-        altitud_m,
+        altitud_m                                                 as altitud,
         fecha_alta,
         punto_muestreo_no2
     from estaciones
