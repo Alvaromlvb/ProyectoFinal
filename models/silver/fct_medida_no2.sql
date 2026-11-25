@@ -20,6 +20,11 @@
          pierde todos sus datos desaparece de la tabla.
 -#}
 
+-- Los ref() de las combinaciones están dentro de is_incremental(), que dbt no evalúa al
+-- analizar el proyecto; estas pistas le dicen de qué modelos depende siempre.
+-- depends_on: {{ ref('dim_estaciones_no2') }}
+-- depends_on: {{ ref('dim_tiempo') }}
+
 {{ config(
     materialized='incremental',
     unique_key='id_medida_no2',
