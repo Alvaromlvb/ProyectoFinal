@@ -1,5 +1,5 @@
 {#-
-    NO2 horario de las tres estaciones de Granada, una fila por estación y hora UTC.
+    NO2 horario de las tres estaciones de Granada, una fila por estación, día y hora UTC.
     Las columnas H01..H24 pasan a filas; las horas sin dato se conservan con valor nulo.
 -#}
 {%- set estaciones = ['18087007', '18087010', '18021001'] -%}
@@ -21,7 +21,7 @@ granada as (
         date_from_parts(anno::int, mes::int, dia::int)    as fecha_utc,
         {{ columnas_hora }},
         fichero,
-        LOADED_AT
+        loaded_at
     from source
     where split_part(trim(punto_muestreo), '_', 1) in ('{{ estaciones | join("', '") }}')
       and trim(magnitud) = '8'
@@ -37,7 +37,7 @@ horas as (
         columna_hora,
         valor,
         fichero,
-        LOADED_AT
+        loaded_at
     from granada
         unpivot include nulls (valor for columna_hora in ({{ columnas_hora }}))
 
@@ -49,12 +49,10 @@ final as (
         cod_estacion,
         punto_muestreo,
         fecha_utc,
-        right(columna_hora, 2)::int                                           as hora_utc,
-        dateadd(hour, right(columna_hora, 2)::int, fecha_utc::timestamp_ntz)  as ts_utc_fin,
-        try_to_decimal(trim(valor), 10, 2)                                    as no2_ugm3,
-        try_to_decimal(trim(valor), 10, 2) is not null                        as es_valido,
+        right(columna_hora, 2)::int             as hora_utc,
+        try_to_decimal(trim(valor), 10, 2)      as no2_ugm3,
         fichero,
-        LOADED_AT
+        loaded_at
     from horas
 
 )
