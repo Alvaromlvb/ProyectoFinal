@@ -6,8 +6,8 @@ seeds:
       Calendario laboral oficial de Granada capital, 2015-2021: festivos nacionales,
       autonómicos de Andalucía y las dos fiestas locales de cada año (14 por año).
       Incluye los festivos que caen en sábado y, cuando un festivo se traslada a lunes,
-      la fecha en que se disfruta. Se usa en dim_mes (festivos laborables del mes) y
-      para marcar los días festivos en el NO2 horario.
+      la fecha en que se disfruta. Se usa en dim_tiempo para contar los festivos de cada
+      día de la semana en el mes (n_festivos).
     config:
       quote_columns: false
       column_types:
@@ -51,7 +51,7 @@ seeds:
   - name: seed_hitos
     description: >
       Medidas y acontecimientos que definen los periodos de análisis (antes y después).
-      dim_mes los usa para etiquetar cada mes.
+      Referencia para marcar los periodos de análisis (antes y después) en los informes.
     config:
       quote_columns: false
       column_types:
@@ -82,50 +82,6 @@ seeds:
           - not_null
       - name: fecha_fin
         description: Solo para hitos con duración. Vacío si la medida sigue vigente.
-
-  - name: seed_franjas_horarias
-    description: >
-      Agrupación de las horas del día en franjas, distinta para laborables y fines de semana.
-      Definida a partir del perfil horario medio de tráfico 2017-2019 de los propios datos.
-      La hora sigue la etiqueta de los ficheros del Ayuntamiento (1 a 24); se asume que
-      cada valor corresponde a la hora que termina a esa hora.
-    config:
-      quote_columns: false
-      column_types:
-        tipo_dia: varchar
-        franja: varchar
-        hora_inicio: integer
-        hora_fin: integer
-        orden_franja: integer
-    data_tests:
-      - dbt_utils.unique_combination_of_columns:
-          arguments:
-            combination_of_columns:
-              - tipo_dia
-              - hora_inicio
-    columns:
-      - name: tipo_dia
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: ['laborable', 'fin_de_semana']
-      - name: franja
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: ['madrugada', 'punta_manana', 'manana', 'mediodia', 'tarde', 'noche']
-      - name: hora_inicio
-        description: Primera hora de la franja (incluida).
-        data_tests:
-          - not_null
-      - name: hora_fin
-        description: Última hora de la franja (incluida).
-        data_tests:
-          - not_null
-      - name: orden_franja
-        description: Orden de la franja para ordenar gráficos y tablas.
 
   - name: seed_estaciones
     description: >
